@@ -115,31 +115,45 @@ function roundRect(x, y, w, h, r) {
   ctx.closePath();
 }
 
+// ✅ FIXED wrapText (works cleanly with textBaseline="top")
 function wrapText(text, x, y, maxWidth, lineHeight) {
   const words = text.split(" ");
   let line = "";
+
   for (let i = 0; i < words.length; i++) {
-    const test = line + words[i] + " ";
-    if (ctx.measureText(test).width > maxWidth && i > 0) {
+    const testLine = line + words[i] + " ";
+    if (ctx.measureText(testLine).width > maxWidth && i > 0) {
       ctx.fillText(line, x, y);
       line = words[i] + " ";
       y += lineHeight;
-    } else line = test;
+    } else {
+      line = testLine;
+    }
   }
   ctx.fillText(line, x, y);
 }
 
+// ✅ FIXED speechBubble: forces alignment inside the box
 function speechBubble(x, y, text) {
   ctx.save();
+
+  // bubble
   ctx.fillStyle = "rgba(255,255,255,0.97)";
   roundRect(x, y, 300, 62, 18);
   ctx.fill();
   ctx.strokeStyle = "rgba(230,40,100,0.9)";
   ctx.lineWidth = 2;
   ctx.stroke();
+
+  // lock alignment
   ctx.fillStyle = "rgb(230,40,100)";
   ctx.font = "700 16px Georgia, serif";
-  wrapText(text, x + 16, y + 26, 268, 18);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+
+  // text
+  wrapText(text, x + 16, y + 16, 268, 18);
+
   ctx.restore();
 }
 
@@ -244,10 +258,10 @@ function bouquet(x, y, scale = 1) {
   // flower cluster
   const flowers = [
     { dx: -16, dy: -18, c1: "#ff4f9a", c2: "#b0002a" },
-    { dx:  0,  dy: -26, c1: "#ff86c8", c2: "#c4004a" },
-    { dx:  16, dy: -18, c1: "#ff5ab2", c2: "#9d0031" },
-    { dx: -7,  dy: -8,  c1: "#ffd1e6", c2: "#ff3d7f" },
-    { dx:  7,  dy: -8,  c1: "#ff9ecb", c2: "#d1004a" },
+    { dx: 0, dy: -26, c1: "#ff86c8", c2: "#c4004a" },
+    { dx: 16, dy: -18, c1: "#ff5ab2", c2: "#9d0031" },
+    { dx: -7, dy: -8, c1: "#ffd1e6", c2: "#ff3d7f" },
+    { dx: 7, dy: -8, c1: "#ff9ecb", c2: "#d1004a" },
   ];
 
   for (const f of flowers) {
@@ -343,6 +357,7 @@ function drawGirl(x, y) {
   ctx.fillStyle = "rgba(255,255,255,0.9)";
   ctx.font = "700 14px Georgia, serif";
   ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
   ctx.fillText(TO, x + 24, cy + 30);
 }
 
@@ -396,381 +411,4 @@ function drawBoy(x, y) {
   ctx.ellipse(x + 40, cy - 110, 6, 4, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // arm
-  const reachX = x + 52 + 32 * armReach;
-  ctx.strokeStyle = "rgb(255,235,215)";
-  ctx.lineWidth = 6;
-  ctx.beginPath();
-  ctx.moveTo(x + 44, cy - 55);
-  ctx.lineTo(reachX, cy - 52);
-  ctx.stroke();
-
-  // Bouquet behind back (early scenes)
-  if (scene <= Scene.CLOSE_EYES) bouquet(x + 58, cy - 58, 0.72);
-
-  // Bouquet reveal front (later scenes)
-  if (scene >= Scene.REVEAL && scene <= Scene.WAIT_YES) {
-    const scale = 0.92 + 0.08 * Math.sin(performance.now() / 140) * Math.min(1, reveal);
-    bouquet(reachX + 24, cy - (scene >= Scene.KNEEL ? 44 : 56), scale);
-  }
-
-  // name label
-  ctx.fillStyle = "rgba(255,255,255,0.9)";
-  ctx.font = "700 14px Georgia, serif";
-  ctx.textAlign = "center";
-  ctx.fillText(FROM, x + 28, cy + 30);
-}
-
-// YES button
-function drawYesButton() {
-  const W = innerWidth, H = innerHeight;
-  const w = Math.min(340, W * 0.5);
-  const h = 64;
-  const x = W / 2 - w / 2;
-  const y = H * 0.18;
-
-  yesBtn = { x, y, w, h, visible: true };
-
-  const pulse = 0.92 + 0.08 * Math.sin(performance.now() / 140);
-
-  ctx.save();
-  ctx.translate(W / 2, y + h / 2);
-  ctx.scale(pulse, pulse);
-  ctx.translate(-W / 2, -(y + h / 2));
-
-  // glow
-  const g = ctx.createRadialGradient(W / 2, y + h / 2, 10, W / 2, y + h / 2, 140);
-  g.addColorStop(0, "rgba(255, 120, 180, 0.35)");
-  g.addColorStop(1, "rgba(255, 120, 180, 0)");
-  ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.arc(W / 2, y + h / 2, 140, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = "rgba(230,40,100,0.93)";
-  roundRect(x, y, w, h, 20);
-  ctx.fill();
-
-  ctx.strokeStyle = "rgba(255,255,255,0.9)";
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  ctx.fillStyle = "white";
-  ctx.font = "900 22px Georgia, serif";
-  ctx.textAlign = "center";
-  ctx.fillText("YES 💖", x + w / 2, y + 40);
-
-  ctx.restore();
-}
-
-// Background per scene (changes every scene)
-function drawBackground() {
-  const W = innerWidth, H = innerHeight;
-  const gy = groundY();
-
-  // Choose palette per scene
-  const palettes = {
-    [Scene.WALK]: ["#2b1055", "#ff9a9e"],             // twilight
-    [Scene.GIRL_HIDE]: ["#1e1a78", "#ff7eb3"],        // romantic purple
-    [Scene.CLOSE_EYES]: ["#0b0e1e", "#3a1c71"],       // suspense night
-    [Scene.REVEAL]: ["#12002b", "#ff4f9a"],           // reveal pink glow
-    [Scene.KNEEL]: ["#1a0030", "#ff6aa2"],            // kneel spotlight
-    [Scene.QUESTION]: ["#0b1b3a", "#ff6f91"],         // question mood
-    [Scene.WAIT_YES]: ["#0b1b3a", "#ff6f91"],         // same as question
-    [Scene.YES]: ["#2d0b59", "#ffd700"],              // YES golden bloom
-    [Scene.CELEBRATE]: ["#2a003a", "#ff1744"],        // celebration
-  };
-
-  const [top, bottom] = palettes[scene] || palettes[Scene.WALK];
-
-  const sky = ctx.createLinearGradient(0, 0, 0, gy);
-  sky.addColorStop(0, top);
-  sky.addColorStop(1, bottom);
-  ctx.fillStyle = sky;
-  ctx.fillRect(0, 0, W, H);
-
-  // Stars / fireflies intensity per scene
-  const starAlpha =
-    scene === Scene.CLOSE_EYES ? 0.24 :
-    scene === Scene.REVEAL ? 0.14 :
-    scene >= Scene.YES ? 0.10 : 0.16;
-
-  // Soft stars field
-  ctx.fillStyle = `rgba(255,255,255,${starAlpha})`;
-  for (let i = 0; i < 90; i++) {
-    const x = (i * 137) % W;
-    const y = (i * 71) % Math.max(180, gy - 120);
-    ctx.fillRect(x, y, 1, 1);
-  }
-
-  // Fireflies (romantic)
-  for (const f of fireflies) {
-    f.a += f.sp;
-    f.x += Math.cos(f.a) * 0.5;
-    f.y += Math.sin(f.a * 1.2) * 0.4;
-
-    // wrap
-    if (f.x < -20) f.x = W + 20;
-    if (f.x > W + 20) f.x = -20;
-    if (f.y < -20) f.y = H + 20;
-    if (f.y > H + 20) f.y = -20;
-
-    const glow = 0.15 + 0.25 * Math.abs(Math.sin(f.a * 2));
-    ctx.fillStyle = `rgba(255, 240, 180, ${glow})`;
-    ctx.beginPath();
-    ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // Ground
-  const ground = ctx.createLinearGradient(0, gy, 0, H);
-  ground.addColorStop(0, "rgba(160,70,130,0.95)");
-  ground.addColorStop(1, "rgba(90,30,80,0.95)");
-  ctx.fillStyle = ground;
-  ctx.beginPath();
-  ctx.ellipse(W / 2, gy + 90, W * 0.85, 170, 0, 0, Math.PI * 2);
-  ctx.fill();
-}
-
-// Update
-function update() {
-  t++;
-
-  const gx = girlX();
-  const gy = groundY();
-
-  switch (scene) {
-    case Scene.WALK:
-      if (boyX < gx - 170) {
-        boyX += 4.7;
-        walkPhase += 0.35;
-      } else {
-        scene = Scene.GIRL_HIDE;
-        t = 0;
-      }
-      break;
-
-    case Scene.GIRL_HIDE:
-      blush = Math.min(1, blush + 0.012);
-      if (t > 90) { scene = Scene.CLOSE_EYES; t = 0; }
-      break;
-
-    case Scene.CLOSE_EYES:
-      armReach = Math.min(1, armReach + 0.012);
-      if (t > 110) {
-        scene = Scene.REVEAL;
-        t = 0;
-        sparkleBurst(gx - 20, gy - 170, 55);
-      }
-      break;
-
-    case Scene.REVEAL:
-      reveal = Math.min(1, reveal + 0.02);
-      if (t % 12 === 0) sparkleBurst(gx - 20, gy - 170, 18);
-      if (t > 110) { scene = Scene.KNEEL; t = 0; }
-      break;
-
-    case Scene.KNEEL:
-      kneel = Math.min(1, kneel + 0.02);
-      if (t > 95) { scene = Scene.QUESTION; t = 0; }
-      break;
-
-    case Scene.QUESTION:
-      if (t > 90) { scene = Scene.WAIT_YES; t = 0; }
-      break;
-
-    case Scene.WAIT_YES:
-      // wait for button click
-      break;
-
-    case Scene.YES:
-      // quick transition to celebration
-      if (t > 70) { scene = Scene.CELEBRATE; t = 0; }
-      break;
-
-    case Scene.CELEBRATE:
-      if (confetti.length < 160) addConfetti();
-      heartPulse = 1.0 + 0.22 * Math.sin(performance.now() / 120);
-      if (t % 26 === 0) launchFirework();
-      break;
-  }
-
-  // Floating hearts drift up
-  for (const h of floatHearts) {
-    h.y -= 1.2 * h.sp;
-    if (h.y < -70) {
-      h.y = innerHeight + 70;
-      h.x = Math.random() * innerWidth;
-    }
-  }
-
-  // Sparkles
-  for (let i = sparkles.length - 1; i >= 0; i--) {
-    const p = sparkles[i];
-    p.x += p.vx;
-    p.y += p.vy;
-    p.vx *= 0.95;
-    p.vy *= 0.95;
-    p.life -= 0.04;
-    if (p.life <= 0) sparkles.splice(i, 1);
-  }
-
-  // Confetti
-  for (const c of confetti) {
-    c.y += c.s;
-    c.a += 0.08;
-    c.x += Math.sin(c.a) * 0.6;
-  }
-
-  // Fireworks
-  for (let i = fireworks.length - 1; i >= 0; i--) {
-    const fw = fireworks[i];
-    if (!fw.boom) {
-      fw.x += fw.vx;
-      fw.y += fw.vy;
-      fw.vy += 0.06;
-      if (fw.vy > -1.0 || fw.y < innerHeight * 0.45) explodeFirework(fw);
-    } else {
-      for (let j = fw.p.length - 1; j >= 0; j--) {
-        const p = fw.p[j];
-        p.x += p.vx;
-        p.y += p.vy;
-        p.vx *= 0.98;
-        p.vy *= 0.98;
-        p.vy += 0.03;
-        p.life -= 0.02;
-        if (p.life <= 0) fw.p.splice(j, 1);
-      }
-      if (fw.p.length === 0) fireworks.splice(i, 1);
-    }
-  }
-
-  // Click hearts
-  for (let i = clickHearts.length - 1; i >= 0; i--) {
-    const h = clickHearts[i];
-    h.x += h.vx;
-    h.y += h.vy;
-    h.vy += 0.08;
-    h.life -= 0.03;
-    if (h.life <= 0) clickHearts.splice(i, 1);
-  }
-
-  // Shake decay
-  shake = Math.max(0, shake - 0.7);
-}
-
-function draw() {
-  const W = innerWidth, H = innerHeight;
-  const gx = girlX();
-  const gy = groundY();
-
-  // shake transform
-  const sx = (Math.random() * 2 - 1) * shake;
-  const sy = (Math.random() * 2 - 1) * shake;
-  ctx.setTransform(1, 0, 0, 1, sx, sy);
-
-  // Background with scene transitions
-  drawBackground();
-
-  // Floating hearts overlay (more romantic in early scenes)
-  const heartAlpha =
-    scene === Scene.CLOSE_EYES ? 0.25 :
-    scene === Scene.REVEAL ? 0.20 :
-    scene >= Scene.YES ? 0.12 : 0.18;
-
-  ctx.fillStyle = `rgba(255, 210, 230, ${heartAlpha})`;
-  for (const h of floatHearts) miniHeart(h.x, h.y, h.s);
-
-  // Sparkles
-  for (const p of sparkles) {
-    ctx.fillStyle = `hsla(${p.hue}, 100%, 75%, ${p.life})`;
-    ctx.fillRect(p.x, p.y, 3, 3);
-  }
-
-  // Characters
-  drawGirl(gx, gy);
-  drawBoy(boyX, gy);
-
-  // Dialogue per scene + button
-  yesBtn.visible = false;
-
-  if (scene === Scene.GIRL_HIDE) {
-    speechBubble(gx - 180, gy - 210, "What are you hiding? 😏");
-  }
-  if (scene === Scene.CLOSE_EYES) {
-    speechBubble(boyX - 70, gy - 230, "Close your eyes… 🙈");
-  }
-  if (scene === Scene.REVEAL) {
-    speechBubble(gx - 190, gy - 210, "Okay… I’m looking now! 😳✨");
-  }
-  if (scene === Scene.KNEEL) {
-    speechBubble(boyX - 70, gy - 230, "Mashkura… one moment…");
-  }
-  if (scene === Scene.QUESTION || scene === Scene.WAIT_YES) {
-    speechBubble(boyX - 70, gy - 230, "Will you be my Valentine? 💐");
-  }
-  if (scene === Scene.WAIT_YES) {
-    drawYesButton();
-  }
-  if (scene === Scene.YES || scene === Scene.CELEBRATE) {
-    speechBubble(gx - 160, gy - 210, "YES!!! 💖");
-  }
-
-  // Celebration overlay
-  if (scene === Scene.CELEBRATE) {
-    // Big pulsing heart
-    ctx.save();
-    ctx.translate(W / 2, 160 + Math.sin(performance.now() / 400) * 12);
-    ctx.scale(heartPulse, heartPulse);
-    ctx.fillStyle = "rgba(255,50,120,0.98)";
-    miniHeart(0, 0, 64);
-    ctx.restore();
-
-    // Names
-    ctx.fillStyle = "rgba(255,255,255,0.96)";
-    ctx.font = "700 56px Georgia, serif";
-    ctx.textAlign = "center";
-    ctx.fillText(`${FROM} ❤ ${TO}`, W / 2, 92);
-
-    // Confetti
-    for (const c of confetti) {
-      ctx.fillStyle = c.c;
-      ctx.fillRect(c.x, c.y, 6, 6);
-    }
-
-    // Fireworks
-    for (const fw of fireworks) {
-      if (!fw.boom) {
-        ctx.fillStyle = "rgba(255,255,255,0.85)";
-        ctx.fillRect(fw.x, fw.y, 3, 3);
-      } else {
-        for (const p of fw.p) {
-          ctx.fillStyle = `hsla(${p.hue}, 100%, 75%, ${p.life})`;
-          ctx.fillRect(p.x, p.y, 3, 3);
-        }
-      }
-    }
-
-    // Hint
-    ctx.fillStyle = "rgba(255,255,255,0.85)";
-    ctx.font = "600 14px Georgia, serif";
-    ctx.textAlign = "left";
-    ctx.fillText("Tip: click/tap anywhere to throw hearts 💕", 18, H - 18);
-  }
-
-  // Click hearts
-  for (const h of clickHearts) {
-    ctx.fillStyle = `rgba(255,120,180,${h.life})`;
-    miniHeart(h.x, h.y, h.s);
-  }
-
-  // reset transform
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-}
-
-function loop() {
-  update();
-  draw();
-  requestAnimationFrame(loop);
-}
-loop();
+  //
